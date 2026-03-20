@@ -34,6 +34,7 @@ const BOT_TOKEN = process.env.BOT_TOKEN || 'PUT_YOUR_TELEGRAM_BOT_TOKEN_HERE';
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'qwen3.5:2b';
 const OLLAMA_HOST = process.env.OLLAMA_HOST || '127.0.0.1';
 const OLLAMA_PORT = Number(process.env.OLLAMA_PORT || 11434);
+const ALLOWED_TELEGRAM_USER_IDS = parseAllowedUserIds(process.env.ALLOWED_TELEGRAM_USER_IDS || '');
 const CONCURRENCY = Number(process.env.CAPTION_CONCURRENCY || 1);
 const RESIZE_ENABLED = process.env.RESIZE_ENABLED ? process.env.RESIZE_ENABLED !== '0' : true;
 const RESIZE_MAX = Number(process.env.RESIZE_MAX || 368);
@@ -60,15 +61,41 @@ if (!BOT_TOKEN || BOT_TOKEN.includes('PUT_YOUR')) {
 }
 const bot = new TelegramBot(BOT_TOKEN, { polling: true });
 
-bot.onText(/\/start/, (msg) => {
-  bot.sendMessage(
-    msg.chat.id,
-    `Hi! Send me a ZIP with images. I will caption each image using Ollama (${OLLAMA_MODEL}) and send back a ZIP with .txt captions.\nAuto-resize: max side ${RESIZE_MAX}px for faster processing.`
-  );
-});
-
-bot.on('document', async (msg) => {
+bot.on('message', async (msg) => {
   const chatId = msg.chat.id;
+  const userId = msg.from?.id;
+
+  if (!isUserAllowed(userId)) {
+    await bot.sendMessage(
+      chatId,
+      `Access denied. Telegram user ID ${userId ?? 'unknown'} is not allowed to interact with this bot instance.`
+    );
+    return;
+  }
+
+  if (msg.text === '/start') {
+    await bot.sendMessage(
+      chatId,
+      `Hi! Send me a ZIP with images. I will caption each image using Ollama (${OLLAMA_MODEL}) and send back a ZIP with .txt captions.\nAuto-resize: max side ${RESIZE_MAX}px for faster processing.`
+    );
+    return;
+  }
+
+  if (msg.text === '/ping') {
+    try {
+      const id = crypto.randomBytes(4).toString('hex');
+      await ollama.generate({ model: OLLAMA_MODEL, prompt: `ping ${id}` });
+      await bot.sendMessage(chatId, `Ollama OK (model: ${OLLAMA_MODEL})`);
+    } catch (e) {
+      await bot.sendMessage(chatId, 'Ollama not responding. Is it running?');
+    }
+    return;
+  }
+
+  if (!msg.document) {
+    return;
+  }
+
   const doc = msg.document;
 
   // If the user adds a ZIP caption, append it to the base caption prompt.
@@ -320,13 +347,19 @@ async function cleanup(dir) {
   } catch { }
 }
 
-// /ping command for a quick Ollama health check
-bot.onText(/\/ping/, async (msg) => {
-  try {
-    const id = crypto.randomBytes(4).toString('hex');
-    await ollama.generate({ model: OLLAMA_MODEL, prompt: `ping ${id}` });
-    bot.sendMessage(msg.chat.id, `Ollama OK (model: ${OLLAMA_MODEL})`);
-  } catch (e) {
-    bot.sendMessage(msg.chat.id, 'Ollama not responding. Is it running?');
+function parseAllowedUserIds(value) {
+  return new Set(
+    value
+      .split(',')
+      .map((entry) => entry.trim())
+      .filter(Boolean)
+  );
+}
+
+function isUserAllowed(userId) {
+  if (ALLOWED_TELEGRAM_USER_IDS.size === 0) {
+    return true;
   }
-});
+
+  return ALLOWED_TELEGRAM_USER_IDS.has(String(userId));
+}

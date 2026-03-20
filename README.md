@@ -63,6 +63,7 @@ Available options:
 | Variable | Default | Description |
 | --- | --- | --- |
 | `BOT_TOKEN` | none | Telegram bot token. Required. |
+| `ALLOWED_TELEGRAM_USER_IDS` | empty | Comma-separated whitelist of allowed Telegram user IDs. If empty, anyone can interact with the bot. |
 | `OLLAMA_MODEL` | `qwen3.5:2b` | Ollama model name used for caption generation. |
 | `OLLAMA_HOST` | `127.0.0.1` | Hostname or IP address of the Ollama server. |
 | `OLLAMA_PORT` | `11434` | Port of the Ollama server. |
@@ -76,6 +77,7 @@ Example `.env`:
 
 ```env
 BOT_TOKEN=PUT_YOUR_TELEGRAM_BOT_TOKEN_HERE
+ALLOWED_TELEGRAM_USER_IDS=123456789,987654321
 OLLAMA_MODEL=qwen3.5:2b
 OLLAMA_HOST=127.0.0.1
 OLLAMA_PORT=11434
@@ -102,6 +104,11 @@ Available commands:
 
 - `/start` shows a short usage message.
 - `/ping` checks whether Ollama responds for the configured model.
+
+Access control:
+
+- If `ALLOWED_TELEGRAM_USER_IDS` is set, only those Telegram user IDs may use the bot.
+- Any non-whitelisted user gets a deny message that includes their Telegram user ID.
 
 Main workflow:
 
