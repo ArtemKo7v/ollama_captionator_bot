@@ -148,6 +148,27 @@ bot.on('message', async (msg) => {
     return;
   }
 
+  if (msg.text === '/models') {
+    try {
+      const response = await ollama.list();
+      const models = response.models || [];
+
+      if (models.length === 0) {
+        await bot.sendMessage(chatId, 'No Ollama models found on this server.');
+        return;
+      }
+
+      const modelNames = models.map((model) => `- ${model.model || model.name || 'unknown'}`);
+      await bot.sendMessage(
+        chatId,
+        ['Available Ollama models:', ...modelNames].join('\n')
+      );
+    } catch (e) {
+      await bot.sendMessage(chatId, 'Failed to load Ollama models. Is Ollama running and reachable?');
+    }
+    return;
+  }
+
   if (!msg.document) {
     return;
   }
@@ -426,6 +447,7 @@ function buildHelpMessage() {
     '/help - show this help message',
     '/status - show current bot settings',
     '/ping - check Ollama connectivity',
+    '/models - list available Ollama models',
     '/prompt - show the current caption prompt',
     '/prompt some prompt - override the prompt at runtime',
     '/restore prompt - restore the default prompt',
