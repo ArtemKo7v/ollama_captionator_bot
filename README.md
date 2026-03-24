@@ -107,8 +107,9 @@ Available commands:
 - `/start` shows a short usage message.
 - `/ping` checks whether Ollama responds for the configured model.
 - `/status` shows the active model, resize setting, and current caption prompt.
+- `/prompt` shows the current caption prompt and how to change it.
 - `/prompt some prompt` updates the in-memory caption prompt used for future caption generation.
-- `/prompt` resets the runtime prompt back to `CAPTION_PROMPT` from `.env`, or the built-in default if that env variable is not set.
+- `/restore prompt` resets the runtime prompt back to `CAPTION_PROMPT` from `.env`, or the built-in default if that env variable is not set.
 
 Access control:
 

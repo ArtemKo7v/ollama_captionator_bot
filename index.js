@@ -92,23 +92,39 @@ bot.on('message', async (msg) => {
     return;
   }
 
-  if (msg.text?.startsWith('/prompt')) {
+  if (msg.text === '/prompt') {
+    await bot.sendMessage(
+      chatId,
+      `Current caption prompt:\n${CAPTION_PROMPT}\n\nSend \`/prompt some prompt\` to override it at runtime, or \`/restore prompt\` to restore the default prompt.`,
+      { parse_mode: 'Markdown' }
+    );
+    return;
+  }
+
+  if (msg.text?.startsWith('/prompt ')) {
     const nextPrompt = msg.text.slice('/prompt'.length).trim();
 
-    if (nextPrompt) {
-      CAPTION_PROMPT = nextPrompt;
+    if (!nextPrompt) {
       await bot.sendMessage(
         chatId,
-        `Caption prompt updated to:\n${CAPTION_PROMPT}`
+        'Prompt override cannot be empty.'
       );
       return;
     }
 
+    CAPTION_PROMPT = nextPrompt;
+    await bot.sendMessage(
+      chatId,
+      `Caption prompt updated to:\n${CAPTION_PROMPT}`
+    );
+    return;
+  }
+
+  if (msg.text === '/restore prompt') {
     CAPTION_PROMPT = process.env.CAPTION_PROMPT || DEFAULT_CAPTION_PROMPT;
     await bot.sendMessage(
       chatId,
-      'Default caption prompt restored. Send `/prompt some prompt` to override it at runtime.',
-      { parse_mode: 'Markdown' }
+      'Default caption prompt restored.'
     );
     return;
   }
