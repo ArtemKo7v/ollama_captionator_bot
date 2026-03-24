@@ -67,6 +67,7 @@ Available options:
 | `OLLAMA_MODEL` | `qwen3.5:2b` | Ollama model name used for caption generation. |
 | `OLLAMA_HOST` | `127.0.0.1` | Hostname or IP address of the Ollama server. |
 | `OLLAMA_PORT` | `11434` | Port of the Ollama server. |
+| `CAPTION_PROMPT` | built-in prompt | Base prompt used for caption generation at startup. |
 | `CAPTION_CONCURRENCY` | `1` | How many images are processed in parallel. |
 | `RESIZE_ENABLED` | `1` | Enable pre-resizing before inference. Set to `0` to disable. |
 | `RESIZE_MAX` | `368` | Maximum image width or height when resizing is enabled. |
@@ -81,6 +82,7 @@ ALLOWED_TELEGRAM_USER_IDS=123456789,987654321
 OLLAMA_MODEL=qwen3.5:2b
 OLLAMA_HOST=127.0.0.1
 OLLAMA_PORT=11434
+CAPTION_PROMPT=
 CAPTION_CONCURRENCY=1
 RESIZE_ENABLED=1
 RESIZE_MAX=368
@@ -104,6 +106,9 @@ Available commands:
 
 - `/start` shows a short usage message.
 - `/ping` checks whether Ollama responds for the configured model.
+- `/status` shows the active model, resize setting, and current caption prompt.
+- `/prompt some prompt` updates the in-memory caption prompt used for future caption generation.
+- `/prompt` resets the runtime prompt back to `CAPTION_PROMPT` from `.env`, or the built-in default if that env variable is not set.
 
 Access control:
 

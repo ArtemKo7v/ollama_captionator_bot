@@ -46,12 +46,15 @@ const THINK_ENABLED = process.env.THINK_ENABLED ? process.env.THINK_ENABLED !== 
 const SUPPORTED_EXT = new Set(['.jpg', '.jpeg', '.png', '.webp', '.bmp']);
 
 // Short, strict prompt
-const CAPTION_PROMPT = [
+const DEFAULT_CAPTION_PROMPT = [
   'Write a single short (up to 50 words) English description of the image contents.',
   'Be strictly factual and concise. No guesses.',
   'Describe key objects and attributes, style-neutral.',
   'Do not write any camera-related descriptions and phrases like "a photo of" or "The image shows".'
 ].join(' ');
+
+let CAPTION_PROMPT = process.env.CAPTION_PROMPT || DEFAULT_CAPTION_PROMPT;
+
 const ollama = new Ollama({ host: `http://${OLLAMA_HOST}:${OLLAMA_PORT}` });
 
 // === Bot init ===
@@ -77,6 +80,35 @@ bot.on('message', async (msg) => {
     await bot.sendMessage(
       chatId,
       `Hi! Send me a ZIP with images. I will caption each image using Ollama (${OLLAMA_MODEL}) and send back a ZIP with .txt captions.\nAuto-resize: max side ${RESIZE_MAX}px for faster processing.`
+    );
+    return;
+  }
+
+  if (msg.text === '/status') {
+    await bot.sendMessage(
+      chatId,
+      `Model: ${OLLAMA_MODEL}\nAuto-resize: max side ${RESIZE_MAX}px.\nCaption prompt: ${CAPTION_PROMPT}`
+    );
+    return;
+  }
+
+  if (msg.text?.startsWith('/prompt')) {
+    const nextPrompt = msg.text.slice('/prompt'.length).trim();
+
+    if (nextPrompt) {
+      CAPTION_PROMPT = nextPrompt;
+      await bot.sendMessage(
+        chatId,
+        `Caption prompt updated to:\n${CAPTION_PROMPT}`
+      );
+      return;
+    }
+
+    CAPTION_PROMPT = process.env.CAPTION_PROMPT || DEFAULT_CAPTION_PROMPT;
+    await bot.sendMessage(
+      chatId,
+      'Default caption prompt restored. Send `/prompt some prompt` to override it at runtime.',
+      { parse_mode: 'Markdown' }
     );
     return;
   }
