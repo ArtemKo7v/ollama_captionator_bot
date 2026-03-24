@@ -79,7 +79,15 @@ bot.on('message', async (msg) => {
   if (msg.text === '/start') {
     await bot.sendMessage(
       chatId,
-      `Hi! Send me a ZIP with images. I will caption each image using Ollama (${OLLAMA_MODEL}) and send back a ZIP with .txt captions.\nAuto-resize: max side ${RESIZE_MAX}px for faster processing.`
+      `Hi! Send me a ZIP with images. I will caption each image using Ollama (${OLLAMA_MODEL}) and send back a ZIP with .txt captions.\n\n${buildHelpMessage()}`
+    );
+    return;
+  }
+
+  if (msg.text === '/help') {
+    await bot.sendMessage(
+      chatId,
+      buildHelpMessage()
     );
     return;
   }
@@ -87,7 +95,7 @@ bot.on('message', async (msg) => {
   if (msg.text === '/status') {
     await bot.sendMessage(
       chatId,
-      `Model: ${OLLAMA_MODEL}\nAuto-resize: max side ${RESIZE_MAX}px.\nCaption prompt: ${CAPTION_PROMPT}`
+      buildStatusMessage()
     );
     return;
   }
@@ -410,4 +418,42 @@ function isUserAllowed(userId) {
   }
 
   return ALLOWED_TELEGRAM_USER_IDS.has(String(userId));
+}
+
+function buildHelpMessage() {
+  return [
+    'Available commands:',
+    '/help - show this help message',
+    '/status - show current bot settings',
+    '/ping - check Ollama connectivity',
+    '/prompt - show the current caption prompt',
+    '/prompt some prompt - override the prompt at runtime',
+    '/restore prompt - restore the default prompt',
+    '',
+    'Usage:',
+    'Send a ZIP archive with images and I will return a ZIP with .txt captions.'
+  ].join('\n');
+}
+
+function buildStatusMessage() {
+  const whitelistStatus = ALLOWED_TELEGRAM_USER_IDS.size > 0
+    ? `${ALLOWED_TELEGRAM_USER_IDS.size} allowed user(s)`
+    : 'disabled';
+  const promptPreview = CAPTION_PROMPT.length > 300
+    ? `${CAPTION_PROMPT.slice(0, 297)}...`
+    : CAPTION_PROMPT;
+
+  return [
+    'Bot status',
+    `Model: ${OLLAMA_MODEL}`,
+    `Ollama endpoint: http://${OLLAMA_HOST}:${OLLAMA_PORT}`,
+    `Resize: ${RESIZE_ENABLED ? `enabled (max side ${RESIZE_MAX}px)` : 'disabled'}`,
+    `Concurrency: ${CONCURRENCY}`,
+    `Timeout: ${OLLAMA_TIMEOUT_MS} ms`,
+    `Reasoning: ${THINK_ENABLED ? 'enabled' : 'disabled'}`,
+    `Access whitelist: ${whitelistStatus}`,
+    '',
+    'Caption prompt:',
+    promptPreview
+  ].join('\n');
 }
