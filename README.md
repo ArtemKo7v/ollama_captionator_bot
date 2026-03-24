@@ -108,6 +108,9 @@ Available commands:
 - `/help` shows the list of available commands.
 - `/ping` checks whether Ollama responds for the configured model.
 - `/models` lists the Ollama models currently available on the configured server.
+- `/model` shows the current active model and how to change it.
+- `/model some_model` switches to another model at runtime if that model exists on the configured Ollama server.
+- `/restore model` resets the runtime model back to `OLLAMA_MODEL` from `.env`.
 - `/status` shows a formatted summary of the active bot configuration and current prompt.
 - `/prompt` shows the current caption prompt and how to change it.
 - `/prompt some prompt` updates the in-memory caption prompt used for future caption generation.

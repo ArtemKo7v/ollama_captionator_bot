@@ -31,7 +31,7 @@ const __dirname = path.dirname(__filename);
 
 // === Config ===
 const BOT_TOKEN = process.env.BOT_TOKEN || 'PUT_YOUR_TELEGRAM_BOT_TOKEN_HERE';
-const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'qwen3.5:2b';
+const DEFAULT_OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'qwen3.5:2b';
 const OLLAMA_HOST = process.env.OLLAMA_HOST || '127.0.0.1';
 const OLLAMA_PORT = Number(process.env.OLLAMA_PORT || 11434);
 const ALLOWED_TELEGRAM_USER_IDS = parseAllowedUserIds(process.env.ALLOWED_TELEGRAM_USER_IDS || '');
@@ -54,6 +54,7 @@ const DEFAULT_CAPTION_PROMPT = [
 ].join(' ');
 
 let CAPTION_PROMPT = process.env.CAPTION_PROMPT || DEFAULT_CAPTION_PROMPT;
+let CURRENT_OLLAMA_MODEL = DEFAULT_OLLAMA_MODEL;
 
 const ollama = new Ollama({ host: `http://${OLLAMA_HOST}:${OLLAMA_PORT}` });
 
@@ -79,7 +80,7 @@ bot.on('message', async (msg) => {
   if (msg.text === '/start') {
     await bot.sendMessage(
       chatId,
-      `Hi! Send me a ZIP with images. I will caption each image using Ollama (${OLLAMA_MODEL}) and send back a ZIP with .txt captions.\n\n${buildHelpMessage()}`
+      `Hi! Send me a ZIP with images. I will caption each image using Ollama (${CURRENT_OLLAMA_MODEL}) and send back a ZIP with .txt captions.\n\n${buildHelpMessage()}`
     );
     return;
   }
@@ -140,8 +141,8 @@ bot.on('message', async (msg) => {
   if (msg.text === '/ping') {
     try {
       const id = crypto.randomBytes(4).toString('hex');
-      await ollama.generate({ model: OLLAMA_MODEL, prompt: `ping ${id}` });
-      await bot.sendMessage(chatId, `Ollama OK (model: ${OLLAMA_MODEL})`);
+      await ollama.generate({ model: CURRENT_OLLAMA_MODEL, prompt: `ping ${id}` });
+      await bot.sendMessage(chatId, `Ollama OK (model: ${CURRENT_OLLAMA_MODEL})`);
     } catch (e) {
       await bot.sendMessage(chatId, 'Ollama not responding. Is it running?');
     }
@@ -166,6 +167,54 @@ bot.on('message', async (msg) => {
     } catch (e) {
       await bot.sendMessage(chatId, 'Failed to load Ollama models. Is Ollama running and reachable?');
     }
+    return;
+  }
+
+  if (msg.text === '/model') {
+    await bot.sendMessage(
+      chatId,
+      `Current model: ${CURRENT_OLLAMA_MODEL}\n\nSend \`/model some_model\` to switch models, or \`/restore model\` to restore the default model.`,
+      { parse_mode: 'Markdown' }
+    );
+    return;
+  }
+
+  if (msg.text?.startsWith('/model ')) {
+    const nextModel = msg.text.slice('/model'.length).trim();
+
+    if (!nextModel) {
+      await bot.sendMessage(chatId, 'Model override cannot be empty.');
+      return;
+    }
+
+    try {
+      const response = await ollama.list();
+      const models = response.models || [];
+      const isAvailable = models.some((model) => {
+        const modelName = model.model || model.name || '';
+        return modelName === nextModel;
+      });
+
+      if (!isAvailable) {
+        await bot.sendMessage(
+          chatId,
+          `Model \`${nextModel}\` is not available on this Ollama server. Use \`/models\` to see available models.`,
+          { parse_mode: 'Markdown' }
+        );
+        return;
+      }
+
+      CURRENT_OLLAMA_MODEL = nextModel;
+      await bot.sendMessage(chatId, `Active model updated to: ${CURRENT_OLLAMA_MODEL}`);
+    } catch (e) {
+      await bot.sendMessage(chatId, 'Failed to validate the model against Ollama. Is Ollama running and reachable?');
+    }
+    return;
+  }
+
+  if (msg.text === '/restore model') {
+    CURRENT_OLLAMA_MODEL = DEFAULT_OLLAMA_MODEL;
+    await bot.sendMessage(chatId, `Default model restored: ${CURRENT_OLLAMA_MODEL}`);
     return;
   }
 
@@ -372,7 +421,7 @@ async function captionImage(imagePath, prompt) {
   }, OLLAMA_TIMEOUT_MS);
 
   const stream = await ollama.chat({
-    model: OLLAMA_MODEL,
+    model: CURRENT_OLLAMA_MODEL,
     messages: [{ role: 'user', content: prompt, images: [imagePath] }],
     stream: true,
     keep_alive: '24h',
@@ -448,6 +497,9 @@ function buildHelpMessage() {
     '/status - show current bot settings',
     '/ping - check Ollama connectivity',
     '/models - list available Ollama models',
+    '/model - show the current active model',
+    '/model some_model - override the model at runtime',
+    '/restore model - restore the default model',
     '/prompt - show the current caption prompt',
     '/prompt some prompt - override the prompt at runtime',
     '/restore prompt - restore the default prompt',
@@ -467,7 +519,8 @@ function buildStatusMessage() {
 
   return [
     'Bot status',
-    `Model: ${OLLAMA_MODEL}`,
+    `Model: ${CURRENT_OLLAMA_MODEL}`,
+    `Default model: ${DEFAULT_OLLAMA_MODEL}`,
     `Ollama endpoint: http://${OLLAMA_HOST}:${OLLAMA_PORT}`,
     `Resize: ${RESIZE_ENABLED ? `enabled (max side ${RESIZE_MAX}px)` : 'disabled'}`,
     `Concurrency: ${CONCURRENCY}`,
