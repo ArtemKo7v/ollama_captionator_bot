@@ -154,7 +154,7 @@ bot.on('message', async (msg) => {
   if (msg.text === '/prompt') {
     await bot.sendMessage(
       chatId,
-      `Current caption prompt:\n${CAPTION_PROMPT}\n\nSend \`/prompt some prompt\` to override it at runtime, or \`/restore prompt\` to restore the default prompt.`,
+      `Current caption prompt:\n\`\`\`\n${CAPTION_PROMPT}\n\`\`\`\n\nSend \`/prompt some prompt\` to override it at runtime, or \`/restore prompt\` to restore the default prompt.`,
       { parse_mode: 'Markdown' }
     );
     return;
@@ -227,7 +227,7 @@ bot.on('message', async (msg) => {
   if (msg.text === '/model') {
     await bot.sendMessage(
       chatId,
-      `Current model: ${CURRENT_OLLAMA_MODEL}\n\nSend \`/model some_model\` to switch models, or \`/restore model\` to restore the default model.`,
+      `Current model: \`${CURRENT_OLLAMA_MODEL}\`\n\nSend \`/model some_model\` to switch models, or \`/restore model\` to restore the default model.`,
       { parse_mode: 'Markdown' }
     );
     return;
