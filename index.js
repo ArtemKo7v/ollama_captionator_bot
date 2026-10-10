@@ -65,6 +65,56 @@ if (!BOT_TOKEN || BOT_TOKEN.includes('PUT_YOUR')) {
 }
 const bot = new TelegramBot(BOT_TOKEN, { polling: true });
 
+// A failed reply (e.g. Telegram 400 on bad Markdown) must not crash the bot: otherwise the same
+// unacknowledged update is re-delivered after restart and the bot crash-loops.
+process.on('unhandledRejection', (err) => console.error('Unhandled rejection:', err?.message || err));
+
+bot.on('callback_query', async (query) => {
+  const chatId = query.message?.chat?.id;
+  const userId = query.from?.id;
+  const callbackId = query.id;
+  const data = query.data || '';
+
+  if (!chatId) {
+    await bot.answerCallbackQuery(callbackId, { text: 'Unable to process this action.' });
+    return;
+  }
+
+  if (!isUserAllowed(userId)) {
+    await bot.answerCallbackQuery(callbackId, {
+      text: `User ID ${userId ?? 'unknown'} is not allowed.`,
+      show_alert: true
+    });
+    return;
+  }
+
+  if (!data.startsWith('set_model:')) {
+    await bot.answerCallbackQuery(callbackId, { text: 'Unknown action.' });
+    return;
+  }
+
+  const nextModel = data.slice('set_model:'.length);
+
+  try {
+    const result = await setActiveModel(nextModel);
+    if (!result.ok) {
+      await bot.answerCallbackQuery(callbackId, {
+        text: result.message,
+        show_alert: true
+      });
+      return;
+    }
+
+    await bot.answerCallbackQuery(callbackId, { text: `Switched to ${CURRENT_OLLAMA_MODEL}` });
+    await bot.sendMessage(chatId, `Active model updated to: ${CURRENT_OLLAMA_MODEL}`);
+  } catch (e) {
+    await bot.answerCallbackQuery(callbackId, {
+      text: 'Failed to switch model.',
+      show_alert: true
+    });
+  }
+});
+
 bot.on('message', async (msg) => {
   const chatId = msg.chat.id;
   const userId = msg.from?.id;
@@ -151,8 +201,7 @@ bot.on('message', async (msg) => {
 
   if (msg.text === '/models') {
     try {
-      const response = await ollama.list();
-      const models = response.models || [];
+      const models = await getAvailableModels();
 
       if (models.length === 0) {
         await bot.sendMessage(chatId, 'No Ollama models found on this server.');
@@ -162,7 +211,12 @@ bot.on('message', async (msg) => {
       const modelNames = models.map((model) => `- ${model.model || model.name || 'unknown'}`);
       await bot.sendMessage(
         chatId,
-        ['Available Ollama models:', ...modelNames].join('\n')
+        ['Available Ollama models:', ...modelNames, '', 'Tap a button below to switch the active model.'].join('\n'),
+        {
+          reply_markup: {
+            inline_keyboard: buildModelKeyboard(models)
+          }
+        }
       );
     } catch (e) {
       await bot.sendMessage(chatId, 'Failed to load Ollama models. Is Ollama running and reachable?');
@@ -188,23 +242,16 @@ bot.on('message', async (msg) => {
     }
 
     try {
-      const response = await ollama.list();
-      const models = response.models || [];
-      const isAvailable = models.some((model) => {
-        const modelName = model.model || model.name || '';
-        return modelName === nextModel;
-      });
-
-      if (!isAvailable) {
+      const result = await setActiveModel(nextModel);
+      if (!result.ok) {
         await bot.sendMessage(
           chatId,
-          `Model \`${nextModel}\` is not available on this Ollama server. Use \`/models\` to see available models.`,
+          result.message,
           { parse_mode: 'Markdown' }
         );
         return;
       }
 
-      CURRENT_OLLAMA_MODEL = nextModel;
       await bot.sendMessage(chatId, `Active model updated to: ${CURRENT_OLLAMA_MODEL}`);
     } catch (e) {
       await bot.sendMessage(chatId, 'Failed to validate the model against Ollama. Is Ollama running and reachable?');
@@ -473,6 +520,29 @@ async function cleanup(dir) {
   } catch { }
 }
 
+async function getAvailableModels() {
+  const response = await ollama.list();
+  return response.models || [];
+}
+
+async function setActiveModel(nextModel) {
+  const models = await getAvailableModels();
+  const isAvailable = models.some((model) => {
+    const modelName = model.model || model.name || '';
+    return modelName === nextModel;
+  });
+
+  if (!isAvailable) {
+    return {
+      ok: false,
+      message: `Model \`${nextModel}\` is not available on this Ollama server. Use \`/models\` to see available models.`
+    };
+  }
+
+  CURRENT_OLLAMA_MODEL = nextModel;
+  return { ok: true };
+}
+
 function parseAllowedUserIds(value) {
   return new Set(
     value
@@ -490,13 +560,25 @@ function isUserAllowed(userId) {
   return ALLOWED_TELEGRAM_USER_IDS.has(String(userId));
 }
 
+function buildModelKeyboard(models) {
+  return models.map((model) => {
+    const modelName = model.model || model.name || 'unknown';
+    const isActive = modelName === CURRENT_OLLAMA_MODEL;
+
+    return [{
+      text: isActive ? `* ${modelName}` : modelName,
+      callback_data: `set_model:${modelName}`
+    }];
+  });
+}
+
 function buildHelpMessage() {
   return [
     'Available commands:',
     '/help - show this help message',
     '/status - show current bot settings',
     '/ping - check Ollama connectivity',
-    '/models - list available Ollama models',
+    '/models - list available Ollama models and show model switch buttons',
     '/model - show the current active model',
     '/model some_model - override the model at runtime',
     '/restore model - restore the default model',

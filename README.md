@@ -107,7 +107,7 @@ Available commands:
 - `/start` shows a short usage message.
 - `/help` shows the list of available commands.
 - `/ping` checks whether Ollama responds for the configured model.
-- `/models` lists the Ollama models currently available on the configured server.
+- `/models` lists the Ollama models currently available on the configured server and shows buttons to switch models.
 - `/model` shows the current active model and how to change it.
 - `/model some_model` switches to another model at runtime if that model exists on the configured Ollama server.
 - `/restore model` resets the runtime model back to `OLLAMA_MODEL` from `.env`.
